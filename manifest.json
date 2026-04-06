@@ -1,0 +1,45 @@
+{
+  "manifest_version": 3,
+  "name": "ACL Anthology Tools",
+  "version": "1.0.0",
+  "description": "Enhances ACL Anthology with BibTeX copy, abstract preview, PDF access, bookmarks, search, and more.",
+  "permissions": [
+    "storage",
+    "clipboardWrite"
+  ],
+  "host_permissions": [
+    "https://aclanthology.org/*"
+  ],
+  "action": {
+    "default_popup": "src/popup/index.html",
+    "default_title": "ACL Anthology Tools"
+  },
+  "background": {
+    "service_worker": "src/background/service-worker.ts",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://aclanthology.org/events/*"],
+      "js": ["src/content-scripts/events.ts"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://aclanthology.org/*"],
+      "exclude_matches": ["https://aclanthology.org/events/*"],
+      "js": ["src/content-scripts/listing.ts"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://aclanthology.org/*"],
+      "exclude_matches": ["https://aclanthology.org/events/*"],
+      "js": ["src/content-scripts/detail.ts"],
+      "run_at": "document_idle"
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
