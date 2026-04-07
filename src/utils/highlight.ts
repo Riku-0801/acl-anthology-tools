@@ -1,46 +1,40 @@
 /**
  * Text highlighting utilities.
- * Uses TreeWalker to safely insert <mark> elements without innerHTML injection.
- * Original HTML is saved/restored via element.dataset to handle re-highlighting
- * when the query changes.
+ * Uses TreeWalker to insert <mark> elements into text nodes only.
+ * Highlights are cleared by unwrapping <mark> elements — never via innerHTML —
+ * so that event listeners on sibling elements (e.g. buttons) are preserved.
  */
 
-const DATA_KEY = "aclOriginal";
+const MARK_CLASS = "acl-hl";
 
 /**
  * Highlights all case-insensitive occurrences of `query` in the text nodes
- * of `element`. Saves original innerHTML before first modification so it can
- * be restored by clearHighlight().
+ * of `element`. Clears any previous highlights first.
  */
 export function highlightMatches(element: HTMLElement, query: string): void {
-  // Restore original DOM before re-applying (handles query changes)
-  const saved = element.dataset[DATA_KEY];
-  if (saved !== undefined) {
-    element.innerHTML = saved;
-  } else {
-    element.dataset[DATA_KEY] = element.innerHTML;
-  }
-
+  clearHighlight(element);
   if (query.trim() === "") return;
-
-  const lowerQuery = query.toLowerCase();
-  applyHighlightToTextNodes(element, lowerQuery, query.length);
+  applyHighlightToTextNodes(element, query.toLowerCase(), query.length);
 }
 
 /**
- * Restores the element to its original HTML before any highlighting was applied.
+ * Removes all highlight marks from `element`, merging adjacent text nodes.
  */
 export function clearHighlight(element: HTMLElement): void {
-  const saved = element.dataset[DATA_KEY];
-  if (saved !== undefined) {
-    element.innerHTML = saved;
-    delete element.dataset[DATA_KEY];
+  const marks = element.querySelectorAll<HTMLElement>(`mark.${MARK_CLASS}`);
+  for (const mark of marks) {
+    const parent = mark.parentNode;
+    if (parent === null) continue;
+    parent.replaceChild(
+      document.createTextNode(mark.textContent ?? ""),
+      mark
+    );
+    parent.normalize();
   }
 }
 
 /**
  * Walks all text nodes under `root` and wraps matches with <mark> elements.
- * Uses DocumentFragment to batch DOM insertions.
  */
 function applyHighlightToTextNodes(
   root: HTMLElement,
@@ -75,6 +69,7 @@ function applyHighlightToTextNodes(
         );
       }
       const mark = document.createElement("mark");
+      mark.className = MARK_CLASS;
       mark.textContent = text.slice(matchIndex, matchIndex + queryLength);
       fragment.appendChild(mark);
 

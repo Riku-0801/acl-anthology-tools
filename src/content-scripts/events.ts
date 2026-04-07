@@ -176,6 +176,41 @@ function injectControlBar(
   const papers = bindings.map((b) => b.paper);
   const searchIndex = buildSearchIndex(papers);
 
+  // Build abstract card-body references (sibling div.abstract-collapse > .card-body)
+  const abstractCardBodies: Array<HTMLElement | null> = bindings.map((b) => {
+    const sibling = b.element.nextElementSibling;
+    if (
+      sibling instanceof HTMLElement &&
+      sibling.classList.contains("abstract-collapse")
+    ) {
+      return sibling.querySelector<HTMLElement>(".card-body");
+    }
+    return null;
+  });
+
+  // Register Bootstrap collapse listeners so opening an abstract while a
+  // search is active immediately highlights matching text inside it.
+  for (let i = 0; i < bindings.length; i++) {
+    const sibling = bindings[i]?.element.nextElementSibling;
+    if (
+      !(sibling instanceof HTMLElement) ||
+      !sibling.classList.contains("abstract-collapse")
+    )
+      continue;
+
+    sibling.addEventListener("shown.bs.collapse", () => {
+      const cardBody = abstractCardBodies[i];
+      if (cardBody != null && input.value.trim() !== "") {
+        highlightMatches(cardBody, input.value);
+      }
+    });
+
+    sibling.addEventListener("hide.bs.collapse", () => {
+      const cardBody = abstractCardBodies[i];
+      if (cardBody != null) clearHighlight(cardBody);
+    });
+  }
+
   function applyFilters(query: string, mode: FilterMode): void {
     const matchingIndices = filterByIndex(searchIndex, query);
 
@@ -196,14 +231,23 @@ function injectControlBar(
 
         const textArea =
           binding.element.querySelector<HTMLElement>("span.d-block");
+        const abstractCardBody = abstractCardBodies[i] ?? null;
+
+        // Check if abstract is currently expanded (Bootstrap adds "show" class)
+        const abstractVisible =
+          abstractCardBody !== null &&
+          (abstractCardBody.closest(".abstract-collapse")?.classList.contains("show") ??
+            false);
 
         if (visible) {
           binding.element.style.removeProperty("display");
           visibleCount++;
           if (textArea !== null) highlightMatches(textArea, query);
+          if (abstractVisible) highlightMatches(abstractCardBody, query);
         } else {
           binding.element.style.setProperty("display", "none", "important");
           if (textArea !== null) clearHighlight(textArea);
+          if (abstractVisible) clearHighlight(abstractCardBody);
         }
       }
 
